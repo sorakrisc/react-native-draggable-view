@@ -24,6 +24,7 @@ class DraggableView extends Component {
       initialPosition: initialDrawerSize,
       finalPosition: this.props.finalDrawerHeight,
       initialUsedSpace: initialUsedSpace,
+      resetFlag: false,
     };
   }
 
@@ -49,13 +50,18 @@ class DraggableView extends Component {
   }
 
   close = () => {
+    // console.log('closee');
+
     this.startAnimation(-90, 100, this.state.finalPosition, null,
-        this.state.initialPosition);
-    if (this.props.fade) {
-      this.state.fadeValue.resetAnimation(() => {
-      });
-    }
+        this.state.initialPosition, true);
     this.props.onRelease && this.props.onRelease(true); // only add this line if you need to detect if the drawer is up or not
+
+  };
+
+  reset = () => {
+    this.setState({resetFlag: true}, () => {
+      this.close();
+    });
   };
 
   isAValidMovement = (distanceX, distanceY) => {
@@ -70,7 +76,9 @@ class DraggableView extends Component {
       initialPosition,
       id,
       finalPosition,
+      force,
   ) => {
+    // console.log('start animation');
     const {isInverseDirection} = this.props;
 
     var isGoingToUp = velocityY < 0 ? !isInverseDirection : isInverseDirection;
@@ -86,18 +94,24 @@ class DraggableView extends Component {
       velocity: velocityY,
     }).start();
 
-    position.addListener(position => {
+    position.addListener(pos => {
       if (!this.center) {
         return;
       }
-      this.onUpdatePosition(position.value);
+      if (this.state.resetFlag && !force) {
+        position.removeAllListeners();
+        return;
+      }
+      this.onUpdatePosition(pos.value);
     });
   };
 
   onUpdatePosition(position) {
     position = position - 50;
+    // console.log('position', position);
     this.state.position.setValue(position);
     if (this.props.fade) {
+      // console.log('', Math.min(position / this.state.initialPosition, 1));
       this.state.fadeValue.setValue(
           Math.min(position / this.state.initialPosition, 1));
     }
@@ -147,7 +161,7 @@ class DraggableView extends Component {
         this.state.finalPosition,
     );
     this.props.onRelease(isGoingToUp, () => {
-      this.close();
+      this.reset();
     });
   }
 
