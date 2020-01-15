@@ -20,8 +20,8 @@ class DraggableView extends Component {
     this.state = {
       touched: false,
       position: new Animated.Value(initialDrawerSize),
-      fadeValue: new Animated.Value(0),
-      initialPositon: initialDrawerSize,
+      fadeValue: new Animated.Value(1),
+      initialPosition: initialDrawerSize,
       finalPosition: this.props.finalDrawerHeight,
       initialUsedSpace: initialUsedSpace,
     };
@@ -43,16 +43,20 @@ class DraggableView extends Component {
   }
 
   open() {
-    this.startAnimation(-100, 500, this.state.initialPositon, null,
+    this.startAnimation(-100, 500, this.state.initialPosition, null,
         this.state.finalPosition);
     this.props.onRelease && this.props.onRelease(true); // only add this line if you need to detect if the drawer is up or not
   }
 
-  close() {
+  close = () => {
     this.startAnimation(-90, 100, this.state.finalPosition, null,
-        this.state.initialPositon);
+        this.state.initialPosition);
+    if (this.props.fade) {
+      this.state.fadeValue.resetAnimation(() => {
+      });
+    }
     this.props.onRelease && this.props.onRelease(true); // only add this line if you need to detect if the drawer is up or not
-  }
+  };
 
   isAValidMovement = (distanceX, distanceY) => {
     const moveTravelledFarEnough =
@@ -63,14 +67,14 @@ class DraggableView extends Component {
   startAnimation = (
       velocityY,
       positionY,
-      initialPositon,
+      initialPosition,
       id,
       finalPosition,
   ) => {
     const {isInverseDirection} = this.props;
 
     var isGoingToUp = velocityY < 0 ? !isInverseDirection : isInverseDirection;
-    var endPosition = isGoingToUp ? finalPosition + 50 : initialPositon + 50;
+    var endPosition = isGoingToUp ? finalPosition + 50 : initialPosition + 50;
 
     var position = new Animated.Value(positionY);
     position.removeAllListeners();
@@ -83,7 +87,9 @@ class DraggableView extends Component {
     }).start();
 
     position.addListener(position => {
-      if (!this.center) return;
+      if (!this.center) {
+        return;
+      }
       this.onUpdatePosition(position.value);
     });
   };
@@ -91,6 +97,10 @@ class DraggableView extends Component {
   onUpdatePosition(position) {
     position = position - 50;
     this.state.position.setValue(position);
+    if (this.props.fade) {
+      this.state.fadeValue.setValue(
+          Math.min(position / this.state.initialPosition, 1));
+    }
     this._previousTop = position;
     const {initialPosition} = this.state;
 
@@ -117,27 +127,35 @@ class DraggableView extends Component {
   }
 
   moveDrawerView(gestureState) {
-    if (!this.center) return;
+    if (!this.center) {
+      return;
+    }
     const position = gestureState.moveY - SCREEN_HEIGHT * 0.05;
     this.onUpdatePosition(position);
   }
 
   moveFinished(gestureState) {
     const isGoingToUp = gestureState.vy < 0;
-    if (!this.center) return;
+    if (!this.center) {
+      return;
+    }
     this.startAnimation(
         gestureState.vy,
         gestureState.moveY,
-        this.state.initialPositon,
+        this.state.initialPosition,
         gestureState.stateId,
         this.state.finalPosition,
     );
-    this.props.onRelease(isGoingToUp);
+    this.props.onRelease(isGoingToUp, () => {
+      this.close();
+    });
   }
 
   moveFinishedUpper() {
-    if (!this.center) return;
-    this.startAnimation(-10, 0, this.state.initialPositon, 0,
+    if (!this.center) {
+      return;
+    }
+    this.startAnimation(-10, 0, this.state.initialPosition, 0,
         this.state.finalPosition);
     this.props.onRelease && this.props.onRelease(true);
   }
@@ -149,8 +167,8 @@ class DraggableView extends Component {
 
     const drawerPosition = {
       top: this.state.position,
+      opacity: this.state.fadeValue,
     };
-
     return (
         <View style={styles.viewport}>
           <View style={styles.container}>{containerView}</View>
